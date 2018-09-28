@@ -18,6 +18,15 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 
+//added --START
+import java.io.BufferedWriter;
+import java.io.OutputStreamWriter;
+import java.lang.reflect.Type;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+//added --END
+
 public class LonelyTwitterActivity extends Activity {
 
 	private static final String FILENAME = "file.sav";
@@ -31,16 +40,36 @@ public class LonelyTwitterActivity extends Activity {
 		setContentView(R.layout.main);
 
 		bodyText = (EditText) findViewById(R.id.body);
+		Button clearButton = (Button) findViewById(R.id.clear); //ADDED
 		Button saveButton = (Button) findViewById(R.id.save);
 		oldTweetsList = (ListView) findViewById(R.id.oldTweetsList);
+		//added --START
+		clearButton.setOnClickListener(new View.OnClickListener() {
 
+			public void onClick(View v) {
+				setResult(RESULT_OK);
+				tweetList.clear(); 	//Clear all previous tweets till now
+
+				saveInFile();
+				adapter.notifyDataSetChanged();
+			}
+		});
+		//added --END
 		saveButton.setOnClickListener(new View.OnClickListener() {
 
 			public void onClick(View v) {
 				setResult(RESULT_OK);
 				String text = bodyText.getText().toString();
-				saveInFile(text, new Date(System.currentTimeMillis()));
-				finish();
+				//Tweet gets created here
+
+				Tweet tweet = new NormalTweet(text);
+				tweetList.add(tweet);
+
+				saveInFile();
+				adapter.notifyDataSetChanged();
+
+				//saveInFile(text, new Date(System.currentTimeMillis()));
+				// don't close everytime it's saved ==> finish();
 
 			}
 		});
@@ -50,50 +79,46 @@ public class LonelyTwitterActivity extends Activity {
 	protected void onStart() {
 		// TODO Auto-generated method stub
 		super.onStart();
-		String[] tweets = loadFromFile();
-		ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
-				R.layout.list_item, tweets);
+
+		//Load all the save tweets to our
+		loadFromFile(); //Old function that reads from traditional way now changing to object oriented
+		adapter = new ArrayAdapter<Tweet>(this,
+				R.layout.list_item,tweetList);
 		oldTweetsList.setAdapter(adapter);
 	}
 
 	private String[] loadFromFile() {
-		ArrayList<String> tweets = new ArrayList<String>();
-		ArrayList<Tweet> tweetList = new ArrayList<Tweet>();
+		ArrayList<String> tweets = new ArrayList<String>(); // create a list of strings
 
-		ArrayList<CurrentMood> mymoods = new ArrayList<CurrentMood>();
-		mymoods.add(new MoodA());
-		mymoods.add(new MoodB());
-
-		NormalTweet myTweet = new NormalTweet();
-		myTweet.setMoods(mymoods);
-
-		tweetList.add(myTweet);
 		try {
+
 			FileInputStream fis = openFileInput(FILENAME);
-			BufferedReader in = new BufferedReader(new InputStreamReader(fis));
-			String line = in.readLine();
-			while (line != null) {
-				tweets.add(line);
-				line = in.readLine();
-			}
+			BufferedReader in = new BufferedReader(new InputStreamReader(fis)); //parse each line
+			Gson gson = new Gson();
+			Type listType = new TypeToken<ArrayList<NormalTweet>>(){}.getType();
+			tweetList = gson.fromJson(in, listType);
 
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			tweetList = new ArrayList<Tweet>();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return tweets.toArray(new String[tweets.size()]);
 	}
 	
-	private void saveInFile(String text, Date date) {
+	private void saveInFile(){//String text, Date date) {
 		try {
+
 			FileOutputStream fos = openFileOutput(FILENAME,
-					Context.MODE_APPEND);
-			fos.write(new String(date.toString() + " | " + text)
-					.getBytes());
+					Context.MODE_PRIVATE);
+			BufferedWriter out = new BufferedWriter(new OutputStreamWriter(fos));
+
+			Gson gson = new Gson();
+			gson.toJson(tweetList, out);
+			out.flush();
 			fos.close();
+			
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
